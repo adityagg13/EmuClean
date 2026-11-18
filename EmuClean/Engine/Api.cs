@@ -18,6 +18,7 @@ namespace EmuClean.Engine
         private List<DetectedEmu> _detected = new List<DetectedEmu>();
         private readonly Dictionary<string, AdbManager> _adb =
             new Dictionary<string, AdbManager>();
+        private DeviceManager _device;
 
         private void Log(string msg)
         {
@@ -52,6 +53,25 @@ namespace EmuClean.Engine
                     args.Count > 2 && args[2] != null && args[2].Type != JTokenType.Null
                         ? (string)args[2] : null);
                 case "running_targets": return Optimizer.RunningTargets();
+                case "device_status": return DeviceStatus();
+                case "device_connect": return DeviceConnect(args.Count > 0 && args[0] != null
+                    && args[0].Type != JTokenType.Null ? (string)args[0] : null);
+                case "device_reconnect": return DeviceReconnect();
+                case "device_info": return DeviceInfo();
+                case "device_packages": return DevicePackages(args.Count > 0 && (bool?)args[0] == true);
+                case "device_uninstall": return DeviceUninstall(
+                    args[0].Select(t => (string)t).ToList());
+                case "device_restore": return DeviceRestore((string)args[0]);
+                case "device_force_stop_all": return DeviceForceStop();
+                case "device_deny_notifications": return DeviceDenyNotif();
+                case "device_ls": return DeviceLs((string)args[0]);
+                case "device_pull": return DevicePull((string)args[0],
+                    args.Count > 1 && args[1] != null && args[1].Type != JTokenType.Null
+                        ? (string)args[1] : null);
+                case "device_push": return DevicePush((string)args[0], (string)args[1]);
+                case "device_quick_pull": return DeviceQuickPull((string)args[0]);
+                case "device_reboot": return DeviceReboot(args.Count > 0 && args[0] != null
+                    && args[0].Type != JTokenType.Null ? (string)args[0] : "system");
                 case "get_log": return GetLog();
                 case "close_window":
                     form.BeginInvoke((Action)(() => form.Close()));
@@ -98,7 +118,7 @@ namespace EmuClean.Engine
                     }).ToList(),
                 });
             }
-            return new { emulators = outp, leftovers = Cleaner.FindLeftovers(), version = "1.0.0" };
+            return new { emulators = outp, leftovers = Cleaner.FindLeftovers(), version = "1.1.0" };
         }
 
         private static string EmojiOf(string id)
@@ -202,6 +222,182 @@ namespace EmuClean.Engine
             var results = mgr.Uninstall(packages);
             foreach (var kv in results) Log("  " + kv.Key + ": " + kv.Value);
             return new { ok = true, results, log = GetLog() };
+        }
+
+        // ------------------------------------------------ device mode (CoreUP-inspired)
+        private DeviceManager GetDevice()
+        {
+            if (_device == null) _device = new DeviceManager();
+            return _device;
+        }
+
+        private object DeviceStatus()
+        {
+            var mgr = GetDevice();
+            var devs = mgr.Devices();
+            bool hasAdb = !string.IsNullOrEmpty(mgr.AdbPath);
+            if (mgr.Serial == "" && devs.Count > 0)
+            {
+                var first = devs.FirstOrDefault(d => (string)d["state"] == "device");
+                if (first != null) mgr.Serial = (string)first["serial"];
+            }
+            string msg = !hasAdb
+                ? "adb.exe not found — keep the platform-tools folder from the release zip next to EmuClean.exe"
+                : mgr.Serial != "" ? "connected: " + mgr.Serial
+                : devs.Count + " adb device(s) — pick one below";
+            return new
+            {
+                adb = hasAdb,
+                adb_path = mgr.AdbPath,
+                devices = devs,
+                serial = mgr.Serial,
+                message = msg,
+            };
+        }
+
+        private object DeviceConnect(string serial)
+        {
+            var mgr = GetDevice();
+            if (string.IsNullOrEmpty(mgr.AdbPath))
+                return new { ok = false, message = "adb.exe not found" };
+            if (string.IsNullOrEmpty(serial))
+            {
+                var dev = mgr.Devices().FirstOrDefault(d => (string)d["state"] == "device");
+                if (dev == null)
+                    return new { ok = false, message = "no device in 'device' state — plug in the phone and allow USB debugging" };
+                serial = (string)dev["serial"];
+            }
+            mgr.Connect(serial);
+            Log("device: connected " + serial);
+            return new { ok = true, message = "connected: " + serial };
+        }
+
+        private object DeviceReconnect()
+        {
+            var res = GetDevice().Reconnect();
+            Log("device: reconnect — devices now: " +
+                ((List<Dictionary<string, object>>)res["devices"]).Count);
+            return res;
+        }
+
+        private object DeviceInfo()
+        {
+            var mgr = GetDevice();
+            if (mgr.Serial == "") return new Dictionary<string, object> { ["ok"] = false, ["message"] = "no device connected" };
+            var info = mgr.Info();
+            info["ok"] = true;
+            Log("device info: " + info["brand"] + " " + info["model"] + " — Android " + info["android"]);
+            return info;
+        }
+
+        private object DevicePackages(bool thirdPartyOnly)
+        {
+            var mgr = GetDevice();
+            if (mgr.Serial == "") return new { ok = false, packages = Array.Empty<object>() };
+            var pkgs = mgr.Packages(thirdPartyOnly);
+            return new { ok = true, packages = pkgs };
+        }
+
+        private object DeviceUninstall(List<string> packages)
+        {
+            var mgr = GetDevice();
+            if (mgr.Serial == "") return new { ok = false, message = "no device connected" };
+            Log("device uninstall: " + packages.Count + " package(s)");
+            var results = mgr.Uninstall(packages);
+            foreach (var kv in results) Log("  " + kv.Key + ": " + kv.Value);
+            return new { ok = true, results, log = GetLog() };
+        }
+
+        private object DeviceRestore(string pkg)
+        {
+            var mgr = GetDevice();
+            if (mgr.Serial == "") return new { ok = false, message = "no device connected" };
+            var msg = mgr.Restore(pkg);
+            Log("device restore " + pkg + ": " + msg);
+            return new { ok = msg == "ok", message = msg == "ok" ? "restored " + pkg : msg };
+        }
+
+        private object DeviceForceStop()
+        {
+            var mgr = GetDevice();
+            if (mgr.Serial == "") return new { ok = false, message = "no device connected" };
+            var res = mgr.ForceStopAll();
+            Log(string.Format("device force-stop ALL: {0} stopped, {1} failed", res["stopped"], res["failed"]));
+            return new { ok = true, stopped = res["stopped"], failed = res["failed"], log = GetLog() };
+        }
+
+        private object DeviceDenyNotif()
+        {
+            var mgr = GetDevice();
+            if (mgr.Serial == "") return new { ok = false, message = "no device connected" };
+            var res = mgr.DenyNotificationsAll();
+            if ((bool)res["sdk_ok"])
+                Log(string.Format("device deny notifications ALL: {0} denied, {1} failed", res["denied"], res["failed"]));
+            else
+                Log("device deny notifications ALL: " + res["message"]);
+            return new
+            {
+                ok = true,
+                denied = res["denied"],
+                failed = res["failed"],
+                sdk_ok = res["sdk_ok"],
+                message = res.ContainsKey("message") ? res["message"] : "",
+                log = GetLog(),
+            };
+        }
+
+        private object DeviceLs(string path)
+        {
+            var mgr = GetDevice();
+            if (mgr.Serial == "") return new { ok = false, entries = Array.Empty<object>() };
+            var entries = mgr.Ls(path);
+            return new { ok = true, path, entries };
+        }
+
+        private static string PullDir()
+        {
+            return System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                "Downloads", "EmuClean");
+        }
+
+        private object DevicePull(string remote, string localDir)
+        {
+            var mgr = GetDevice();
+            if (mgr.Serial == "") return new { ok = false, message = "no device connected" };
+            if (string.IsNullOrEmpty(localDir)) localDir = PullDir();
+            var msg = mgr.Pull(remote, localDir);
+            Log("device pull " + remote + " → " + localDir + " — " + msg);
+            return new { ok = msg.StartsWith("pulled"), message = msg + " → " + localDir };
+        }
+
+        private object DevicePush(string local, string remote)
+        {
+            var mgr = GetDevice();
+            if (mgr.Serial == "") return new { ok = false, message = "no device connected" };
+            if (!System.IO.File.Exists(local))
+                return new { ok = false, message = "local file not found: " + local };
+            var msg = mgr.Push(local, remote);
+            Log("device push " + local + " → " + remote + " — " + msg);
+            return new { ok = msg.StartsWith("pushed"), message = msg };
+        }
+
+        private object DeviceQuickPull(string kind)
+        {
+            var mgr = GetDevice();
+            if (mgr.Serial == "") return new { ok = false, message = "no device connected" };
+            var src = mgr.QuickPullSource(kind);
+            if (src == "") return new { ok = false, message = "no " + kind + " folder found on the device" };
+            return DevicePull(src, null);
+        }
+
+        private object DeviceReboot(string mode)
+        {
+            var mgr = GetDevice();
+            if (mgr.Serial == "") return new { ok = false, message = "no device connected" };
+            var msg = mgr.Reboot(mode);
+            Log("device reboot(" + mode + ")");
+            return new { ok = true, message = msg };
         }
 
         // ------------------------------------------------ optimize

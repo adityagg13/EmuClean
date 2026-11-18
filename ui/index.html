@@ -28,6 +28,7 @@
     <div class="nav-item active" data-page="clean"><span>🧹</span><div><b>Clean</b><i>debloat &amp; free space</i></div></div>
     <div class="nav-item" data-page="adb"><span>🤖</span><div><b>ADB Deep Clean</b><i>BlueStacks junk packages</i></div></div>
     <div class="nav-item" data-page="optimize"><span>⚡</span><div><b>Optimize</b><i>android + pc tweaks</i></div></div>
+    <div class="nav-item" data-page="device"><span>📱</span><div><b>Device Mode</b><i>real phone — CoreUP style</i></div></div>
     <div class="nav-item" data-page="log"><span>📜</span><div><b>Log</b><i>what happened</i></div></div>
     <div class="sidebar-foot">
       <span id="foot-version">v1.0.0</span>
@@ -111,6 +112,77 @@
             <button id="btn-opt-pc" class="btn primary sm">Apply selected</button>
           </div>
           <div id="pc-tweaks"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- DEVICE PAGE ---------- -->
+    <section id="page-device" class="page">
+      <div class="page-head">
+        <h1>Device Mode — real Android over USB</h1>
+        <p class="sub">BloatDroid, Files Transfer, Device Info, Force Stop and more for your physical phone or tablet — plug it in and allow USB debugging.</p>
+        <button id="btn-dev-reconnect" class="btn ghost">↻ Reconnect</button>
+      </div>
+
+      <div id="dev-status" class="panel"><div class="muted">Detecting adb…</div></div>
+
+      <div class="opt-cols">
+        <div class="panel">
+          <div class="panel-head"><h2>ℹ️ Device Info</h2>
+            <button id="btn-dev-info" class="btn ghost sm">↻ Refresh</button>
+          </div>
+          <div id="dev-info" class="kv"><div class="muted">—</div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h2>🗂️ Files Transfer</h2>
+            <div class="panel-actions">
+              <button id="btn-pull-shots" class="btn ghost sm">📥 Screenshots</button>
+              <button id="btn-pull-cam" class="btn ghost sm">📥 Camera</button>
+              <button id="btn-pull-dl" class="btn ghost sm">📥 Downloads</button>
+            </div>
+          </div>
+          <div id="dev-pathbar" class="pathbar mono">/sdcard</div>
+          <div id="dev-files" class="filegrid"><div class="muted">—</div></div>
+          <div class="transfer-row">
+            <input id="dev-push-local" type="text" placeholder="local file to push (C:\path\file.apk)">
+            <input id="dev-push-remote" type="text" placeholder="remote path (/sdcard/)">
+            <button id="btn-dev-push" class="btn ghost sm">📤 Push</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>🧟 BloatDroid</h2>
+          <div class="panel-actions">
+            <button id="btn-dev-refresh" class="btn ghost sm">↻ Refresh</button>
+            <button id="btn-dev-sel3" class="btn ghost sm">✓ Select all</button>
+            <button id="btn-dev-nukesel" class="btn ghost sm">☢️ Select nukable</button>
+            <button id="btn-dev-uninstall" class="btn primary sm">🗑 Uninstall selected</button>
+            <button id="btn-dev-nuke" class="btn danger sm">☢️ Full Nuke</button>
+          </div>
+        </div>
+        <div class="muted" style="font-size:12px;margin-bottom:8px">
+          Full Nuke removes known preinstalled bloat (social apps, trial games, preloaded shopping apps) for the current user only — restorable any time.
+        </div>
+        <input id="dev-filter" type="text" placeholder="filter packages…">
+        <div id="dev-list"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2>⚡ Quick Actions</h2></div>
+        <div class="panel-actions">
+          <button id="btn-dev-forcestop" class="btn ghost sm">🧊 Force Stop ALL 3rd-party apps</button>
+          <button id="btn-dev-nonotif" class="btn ghost sm">🔕 Disable notifications — ALL apps</button>
+          <button id="btn-dev-reboot" class="btn ghost sm">🔁 Reboot</button>
+          <button id="btn-dev-recovery" class="btn ghost sm">🔁 Reboot → Recovery</button>
+        </div>
+        <div class="transfer-row" style="margin-top:12px">
+          <input id="dev-restore-pkg" type="text" placeholder="restore a removed system app: com.example.package">
+          <button id="btn-dev-restore" class="btn ghost sm">♻️ Restore</button>
+        </div>
+        <div class="muted" style="font-size:12px;margin-top:8px">
+          Restores run <span class="mono">cmd package install-existing &lt;package&gt;</span> on the device.
         </div>
       </div>
     </section>

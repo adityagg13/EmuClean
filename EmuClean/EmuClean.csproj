@@ -8,7 +8,7 @@
     <AssemblyName>EmuClean</AssemblyName>
     <RootNamespace>EmuClean</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>

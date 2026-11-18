@@ -127,6 +127,39 @@ function api() {
       ],
     }),
     apply_optimizer: async (android, pc) => ({ android: {}, pc: {}, log: ['[mock] applied'] }),
+    device_status: async () => ({
+      adb: true, adb_path: 'C:\\…\\EmuClean\\platform-tools\\adb.exe',
+      devices: [{ serial: 'R58N123ABC', state: 'device', usb: true }],
+      serial: 'R58N123ABC', message: 'connected: R58N123ABC',
+    }),
+    device_connect: async (s) => ({ ok: true, message: 'connected: ' + s }),
+    device_reconnect: async () => ({ ok: true, serial: 'R58N123ABC', devices: [{ serial: 'R58N123ABC', state: 'device', usb: true }] }),
+    device_info: async () => ({
+      ok: true, brand: 'Google', model: 'Pixel 7', device: 'p7', android: '14', sdk: '34',
+      patch: '2024-10-05', build: 'AP2A.241005.004', abi: 'arm64-v8a', serial: 'R58N123ABC',
+      screen: '1080x2400', density: '420', battery_level: '86', battery_status: 'discharging',
+      battery_temp: '29.4 °C', storage_total: '117 GB', storage_free: '44.2 GB', ram: '7.7 GB',
+    }),
+    device_packages: async () => ({
+      ok: true,
+      packages: [
+        { name: 'com.facebook.katana', system: false, nuke: true, core: false },
+        { name: 'com.supercell.clashofclans', system: false, nuke: true, core: false },
+        { name: 'com.instagram.barcelona', system: false, nuke: true, core: false },
+        { name: 'com.whatsapp.w4b', system: false, nuke: false, core: false },
+        { name: 'com.google.android.apps.tachyon', system: true, nuke: true, core: false },
+        { name: 'com.android.settings', system: true, nuke: false, core: true },
+      ],
+    }),
+    device_uninstall: async (e, pkgs) => ({ ok: true, results: Object.fromEntries(pkgs.map((p) => [p, 'ok'])), log: pkgs.map((p) => 'uninstalled ' + p) }),
+    device_restore: async (e, pkg) => ({ ok: true, message: 'restored ' + pkg }),
+    device_force_stop_all: async () => ({ ok: true, stopped: 42, failed: 0, log: ['[mock] force-stopped'] }),
+    device_deny_notifications: async () => ({ ok: true, denied: 40, failed: 2, sdk_ok: true, message: '', log: ['[mock] denied'] }),
+    device_ls: async (e, path) => ({ ok: true, path, entries: [{ name: 'DCIM', dir: true }, { name: 'Download', dir: true }, { name: 'Pictures', dir: true }, { name: 'Android', dir: true }, { name: 'notes.txt', dir: false }] }),
+    device_pull: async () => ({ ok: true, message: 'pulled 12 file(s) → C:\\Users\\you\\Downloads\\EmuClean' }),
+    device_quick_pull: async () => ({ ok: true, message: 'pulled 12 file(s) → C:\\Users\\you\\Downloads\\EmuClean' }),
+    device_push: async () => ({ ok: true, message: 'pushed 1 file(s)' }),
+    device_reboot: async () => ({ ok: true, message: 'rebooting…' }),
     get_log: async () => ['[mock] log line 1', '[mock] log line 2'],
   };
 }
@@ -159,6 +192,7 @@ $$('.nav-item').forEach((el) => {
     if (page === 'log') refreshLog();
     if (page === 'adb') initAdb();
     if (page === 'optimize') initOptimize();
+    if (page === 'device') initDevice();
   });
 });
 
@@ -489,6 +523,234 @@ $('#btn-opt-pc').addEventListener('click', async () => {
   });
   refreshLog();
   toast('PC tweaks applied');
+});
+
+// ---------------------------------------------------------------- device page
+const devState = { serial: null, packages: null, cwd: '/sdcard' };
+
+async function initDevice() {
+  let st;
+  try {
+    st = await api().device_status();
+  } catch (e) {
+    $('#dev-status').innerHTML = `<div class="muted">device api unavailable: ${e}</div>`;
+    return;
+  }
+  devState.serial = st.serial || null;
+  renderDevStatus(st);
+  if (devState.serial) {
+    await loadDevInfo();
+    await loadDevPackages();
+    browseDev('/sdcard');
+  }
+}
+
+function renderDevStatus(st) {
+  const chips = (st.devices || []).map((d) =>
+    `<span class="badge chip ${d.state === 'device' ? 'run' : ''}" data-serial="${d.serial}">${d.serial} · ${d.state}</span>`
+  ).join(' ') || '<span class="badge">no devices — plug in a phone with USB debugging</span>';
+  $('#dev-status').innerHTML = `
+    <div class="muted" style="margin-bottom:8px">adb: <span class="mono">${st.adb_path || 'not found'}</span></div>
+    <div>${st.message}</div>
+    <div style="margin-top:10px">${chips}</div>`;
+  $$('#dev-status .chip').forEach((c) => c.addEventListener('click', async () => {
+    const res = await api().device_connect(c.dataset.serial);
+    toast(res.message, !res.ok);
+    if (res.ok) { devState.serial = c.dataset.serial; initDevice(); }
+  }));
+}
+
+$('#btn-dev-reconnect').addEventListener('click', async () => {
+  toast('Reconnecting…');
+  const res = await api().device_reconnect();
+  toast(res.ok ? `Reconnected — ${devState.serial || 'device ready'}` : 'No device found', !res.ok);
+  initDevice();
+});
+
+const INFO_ROWS = [
+  ['brand', 'Brand'], ['model', 'Model'], ['device', 'Device'], ['android', 'Android'],
+  ['sdk', 'SDK'], ['patch', 'Security patch'], ['build', 'Build'], ['abi', 'ABI'],
+  ['screen', 'Screen'], ['density', 'Density'], ['serial', 'Serial'],
+];
+function renderDevInfo(info) {
+  const rows = INFO_ROWS.filter(([k]) => info[k] != null).map(([k, label]) =>
+    `<div class="row"><b>${label}</b><span>${info[k]}</span></div>`);
+  rows.push(`<div class="row"><b>Battery</b><span>${info.battery_level || '?'}% · ${info.battery_status || '?'} · ${info.battery_temp || '?'}</span></div>`);
+  rows.push(`<div class="row"><b>Storage</b><span>${info.storage_free || '?'} free / ${info.storage_total || '?'}</span></div>`);
+  rows.push(`<div class="row"><b>RAM</b><span>${info.ram || '?'}</span></div>`);
+  $('#dev-info').innerHTML = rows.join('');
+}
+
+async function loadDevInfo() {
+  const info = await api().device_info();
+  if (info.ok !== false) renderDevInfo(info);
+  else $('#dev-info').innerHTML = `<div class="muted">${info.message || 'no device'}</div>`;
+}
+$('#btn-dev-info').addEventListener('click', () => devState.serial && loadDevInfo());
+
+// ---- files transfer
+async function browseDev(path) {
+  const res = await api().device_ls(path);
+  if (!res.ok) { toast('Cannot read ' + path, true); return; }
+  devState.cwd = path;
+  $('#dev-pathbar').textContent = path;
+  const grid = $('#dev-files');
+  grid.innerHTML = '';
+  if (path !== '/sdcard' && path !== '/') {
+    const up = document.createElement('div');
+    up.className = 'frow';
+    up.innerHTML = '↩️ ..';
+    up.addEventListener('click', () => browseDev(path.split('/').slice(0, -1).join('/') || '/'));
+    grid.appendChild(up);
+  }
+  (res.entries || []).forEach((e) => {
+    const el = document.createElement('div');
+    el.className = 'frow' + (e.dir ? '' : ' f');
+    el.innerHTML = `${e.dir ? '📁' : '📄'} ${e.name}`;
+    if (e.dir) el.addEventListener('click', () => browseDev(path === '/' ? '/' + e.name : path + '/' + e.name));
+    grid.appendChild(el);
+  });
+}
+function quickPull(kind, label) {
+  return async () => {
+    if (!devState.serial) { toast('No device connected', true); return; }
+    toast(`Pulling ${label}…`);
+    const res = await api().device_quick_pull(kind);
+    toast(res.message, !res.ok);
+    refreshLog();
+  };
+}
+$('#btn-pull-shots').addEventListener('click', quickPull('screenshots', 'Screenshots'));
+$('#btn-pull-cam').addEventListener('click', quickPull('camera', 'Camera photos'));
+$('#btn-pull-dl').addEventListener('click', quickPull('downloads', 'Download folder'));
+$('#btn-dev-push').addEventListener('click', async () => {
+  const local = $('#dev-push-local').value.trim();
+  const remote = $('#dev-push-remote').value.trim();
+  if (!local || !remote) { toast('Fill both paths', true); return; }
+  const res = await api().device_push(local, remote);
+  toast(res.message, !res.ok);
+  refreshLog();
+});
+
+// ---- BloatDroid
+async function loadDevPackages() {
+  const res = await api().device_packages(false); // include system so preinstalled bloat shows
+  devState.packages = res.ok ? res.packages || [] : [];
+  renderDevPackages();
+}
+
+function renderDevPackages() {
+  const filter = ($('#dev-filter').value || '').toLowerCase();
+  const list = $('#dev-list');
+  list.innerHTML = '';
+  (devState.packages || []).forEach((p) => {
+    if (filter && !p.name.toLowerCase().includes(filter)) return;
+    const el = document.createElement('div');
+    el.className = 'pkg' + (p.core ? ' core' : '') + (p.nuke ? ' nuke' : '');
+    const tag = p.core ? 'CORE — protected' : p.system ? 'system' + (p.nuke ? ' · ☢️ preinstalled bloat' : '')
+      : p.nuke ? '☢️ bloat' : '';
+    el.innerHTML = `
+      <input type="checkbox" data-devpkg="${p.name}" ${p.core ? 'disabled' : ''}>
+      <span>${p.name}</span>
+      <span class="tag">${tag}</span>`;
+    list.appendChild(el);
+  });
+}
+
+function devPkgSelections() {
+  return $$('input[data-devpkg]').filter((c) => c.checked).map((c) => c.dataset.devpkg);
+}
+function selectNukable() {
+  $$('input[data-devpkg]').forEach((c) => {
+    const p = devState.packages.find((x) => x.name === c.dataset.devpkg);
+    if (p && p.nuke && !p.core) c.checked = true;
+  });
+}
+
+$('#dev-filter').addEventListener('input', renderDevPackages);
+$('#btn-dev-refresh').addEventListener('click', () => devState.serial && loadDevPackages());
+$('#btn-dev-sel3').addEventListener('click', () => {
+  $$('input[data-devpkg]').forEach((c) => {
+    const p = devState.packages.find((x) => x.name === c.dataset.devpkg);
+    if (p && !p.core) c.checked = true;
+  });
+});
+$('#btn-dev-nukesel').addEventListener('click', () => { selectNukable(); toast('Preinstalled bloat selected'); });
+
+$('#btn-dev-uninstall').addEventListener('click', async () => {
+  const pkgs = devPkgSelections();
+  if (!pkgs.length) { toast('No packages selected', true); return; }
+  devUninstallFlow(pkgs, `Uninstall ${pkgs.length} package(s)?`);
+});
+
+$('#btn-dev-nuke').addEventListener('click', () => {
+  const nukable = (devState.packages || []).filter((p) => p.nuke && !p.core).map((p) => p.name);
+  if (!nukable.length) { toast('No known bloat found on this device 🙂', true); return; }
+  devUninstallFlow(nukable,
+    `☢️ Full Nuke — remove ${nukable.length} known-bloat package(s)?`,
+    'They are removed for the current user only. Restore any of them later with the Restore box below.');
+});
+
+async function devUninstallFlow(pkgs, title, note) {
+  showModal(title, `
+    <p class="modal-body-list">${note || ''}${pkgs.slice(0, 12).map((p) => `<br>• <span class="mono">${p}</span>`).join('')}
+    ${pkgs.length > 12 ? `<br>… and ${pkgs.length - 12} more` : ''}<br><br>
+    Removed with <b>pm uninstall --user 0</b> — reversible for system apps, a factory reset brings everything back.</p>`,
+  async () => {
+    toast('Uninstalling…');
+    const res = await api().device_uninstall(devState.serial, pkgs);
+    const okN = Object.values(res.results || {}).filter((r) => r === 'ok').length;
+    toast(`Removed ${okN}/${pkgs.length} package(s)`);
+    refreshLog();
+    loadDevPackages();
+  }, 'Uninstall');
+}
+
+// ---- quick actions
+$('#btn-dev-forcestop').addEventListener('click', () => {
+  if (!devState.serial) { toast('No device connected', true); return; }
+  showModal('Force Stop ALL 3rd-party apps?', `
+    <p class="modal-body-list">Every user-installed app is stopped (<b>am force-stop</b>).
+    Apps will relaunch normally when you open them — nothing is uninstalled.</p>`,
+  async () => {
+    const res = await api().device_force_stop_all();
+    toast(`Stopped ${res.stopped} app(s)` + (res.failed ? `, ${res.failed} failed` : ''), !!res.failed);
+    refreshLog();
+  }, 'Force Stop');
+});
+
+$('#btn-dev-nonotif').addEventListener('click', () => {
+  if (!devState.serial) { toast('No device connected', true); return; }
+  showModal('Disable notifications for ALL apps?', `
+    <p class="modal-body-list">Sets <b>appops POST_NOTIFICATION deny</b> for every user-installed app
+    (Android 9+). Silent apps, same apps. Re-enable any time from Android settings → Notifications.</p>`,
+  async () => {
+    const res = await api().device_deny_notifications();
+    if (res.sdk_ok) toast(`Notifications denied for ${res.denied} app(s)` + (res.failed ? `, ${res.failed} failed` : ''), !!res.failed);
+    else toast(res.message || 'Not supported on this Android version', true);
+    refreshLog();
+  }, 'Silence all');
+});
+
+function rebootFlow(mode, label) {
+  return () => {
+    if (!devState.serial) { toast('No device connected', true); return; }
+    showModal(`${label}?`, `<p class="modal-body-list">The device will restart now.</p>`,
+      async () => {
+        const res = await api().device_reboot(mode);
+        toast(res.message || 'Reboot sent');
+      }, label);
+  };
+}
+$('#btn-dev-reboot').addEventListener('click', rebootFlow('system', 'Reboot device'));
+$('#btn-dev-recovery').addEventListener('click', rebootFlow('recovery', 'Reboot to recovery'));
+
+$('#btn-dev-restore').addEventListener('click', async () => {
+  const pkg = $('#dev-restore-pkg').value.trim();
+  if (!pkg) { toast('Type a package name first', true); return; }
+  const res = await api().device_restore(devState.serial, pkg);
+  toast(res.message, !res.ok);
+  refreshLog();
 });
 
 // ---------------------------------------------------------------- log page

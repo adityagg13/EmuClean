@@ -218,3 +218,46 @@ button { font: inherit; cursor: pointer; }
 ::-webkit-scrollbar { width: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 5px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* ---------- device page ---------- */
+.kv { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+.kv .row {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  padding: 7px 11px; border: 1px solid var(--line); border-radius: 9px;
+  background: var(--bg2); font-size: 12.5px;
+}
+.kv .row b { color: var(--muted); font-weight: 500; }
+.kv .row span { font-family: var(--mono); text-align: right; word-break: break-all; }
+#dev-status .badge.chip { margin-right: 4px; cursor: pointer; }
+#dev-status .badge.chip:hover { border-color: var(--accent); color: var(--accent2); }
+.pathbar {
+  padding: 8px 12px; margin-bottom: 10px;
+  background: var(--bg2); border: 1px solid var(--line); border-radius: 10px;
+  font-size: 12px; color: var(--accent2); user-select: text;
+}
+.filegrid {
+  max-height: 236px; overflow-y: auto;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 6px;
+}
+.filegrid .frow {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px; border: 1px solid var(--line); border-radius: 9px;
+  background: var(--bg2); font-size: 12px; cursor: pointer; word-break: break-all;
+}
+.filegrid .frow:hover { border-color: var(--accent); }
+.filegrid .frow.f { cursor: default; opacity: .72; }
+.transfer-row { display: flex; gap: 8px; margin-top: 10px; }
+.transfer-row input {
+  flex: 1; padding: 8px 12px; background: var(--bg2);
+  border: 1px solid var(--line); border-radius: 10px; color: var(--text);
+  outline: none; font-size: 12.5px; user-select: text;
+}
+.transfer-row input:focus { border-color: var(--accent); }
+#dev-filter {
+  width: 100%; padding: 9px 12px; margin-bottom: 10px;
+  background: var(--bg2); border: 1px solid var(--line); border-radius: 10px;
+  color: var(--text); outline: none; user-select: text;
+}
+#dev-filter:focus { border-color: var(--accent); }
+.pkg.nuke { border-color: rgba(255, 95, 122, .5); }
+.pkg.nuke .tag { color: var(--danger); }
