@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>EmuClean — Emulator Debloater & Optimizer</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ===== titlebar (frameless drag) ===== -->
+<header id="titlebar">
+  <div class="tb-left">
+    <span class="logo-mark">EC</span>
+    <span class="tb-title">EmuClean</span>
+    <span class="tb-tag">emulator debloater</span>
+  </div>
+  <div class="tb-drag"></div>
+  <div class="tb-actions">
+    <button id="btn-min" title="Minimize">–</button>
+    <button id="btn-close" title="Close">✕</button>
+  </div>
+</header>
+
+<div id="shell">
+
+  <!-- ===== sidebar ===== -->
+  <nav id="sidebar">
+    <div class="nav-item active" data-page="clean"><span>🧹</span><div><b>Clean</b><i>debloat &amp; free space</i></div></div>
+    <div class="nav-item" data-page="adb"><span>🤖</span><div><b>ADB Deep Clean</b><i>BlueStacks junk packages</i></div></div>
+    <div class="nav-item" data-page="optimize"><span>⚡</span><div><b>Optimize</b><i>android + pc tweaks</i></div></div>
+    <div class="nav-item" data-page="log"><span>📜</span><div><b>Log</b><i>what happened</i></div></div>
+    <div class="sidebar-foot">
+      <span id="foot-version">v1.0.0</span>
+      <span id="foot-admin" class="pill ok">admin</span>
+    </div>
+  </nav>
+
+  <!-- ===== main ===== -->
+  <main id="main">
+
+    <!-- ---------- CLEAN PAGE ---------- -->
+    <section id="page-clean" class="page active">
+      <div class="page-head">
+        <h1>Clean emulator junk</h1>
+        <p class="sub">Cache, logs, crash dumps and leftover files — safe items pre-selected, your saves stay locked.</p>
+        <button id="btn-rescan" class="btn ghost">↻ Rescan</button>
+      </div>
+
+      <div id="detect-status" class="banner hidden"></div>
+
+      <div id="emu-grid" class="cards"></div>
+
+      <div id="rules-wrap" class="panel hidden">
+        <div class="panel-head">
+          <h2 id="rules-title">Rules</h2>
+          <div class="panel-actions">
+            <button id="btn-safe" class="btn ghost sm">✓ Select safe</button>
+            <button id="btn-all" class="btn ghost sm">Select everything</button>
+            <button id="btn-clear" class="btn ghost sm">Clear</button>
+            <button id="btn-clean" class="btn primary">🧹 Clean selected</button>
+          </div>
+        </div>
+        <div id="rules-list"></div>
+      </div>
+
+      <div id="leftover-wrap" class="panel hidden">
+        <div class="panel-head"><h2>Leftovers (uninstalled emulators)</h2></div>
+        <div id="leftover-list"></div>
+      </div>
+    </section>
+
+    <!-- ---------- ADB PAGE ---------- -->
+    <section id="page-adb" class="page">
+      <div class="page-head">
+        <h1>ADB deep clean — BlueStacks</h1>
+        <p class="sub">Remove preinstalled junk packages from your Android instance over ADB. Core system packages are always protected.</p>
+      </div>
+      <div id="adb-status" class="panel"><div class="muted">Choose an emulator on the Clean page first, then come back here.</div></div>
+      <div id="adb-panel" class="panel hidden">
+        <div class="panel-head">
+          <h2 id="adb-title">Packages</h2>
+          <div class="panel-actions">
+            <button id="btn-adb-connect" class="btn ghost sm">🔗 Connect</button>
+            <button id="btn-adb-safe" class="btn ghost sm">✓ Profile: Safe</button>
+            <button id="btn-adb-balanced" class="btn ghost sm">Profile: Balanced</button>
+            <button id="btn-adb-aggro" class="btn ghost sm">Profile: Aggressive</button>
+            <button id="btn-adb-clear" class="btn ghost sm">Clear</button>
+            <button id="btn-adb-uninstall" class="btn primary sm">🗑 Uninstall selected</button>
+          </div>
+        </div>
+        <input id="adb-filter" type="text" placeholder="filter packages…">
+        <div id="adb-list"></div>
+      </div>
+    </section>
+
+    <!-- ---------- OPTIMIZE PAGE ---------- -->
+    <section id="page-optimize" class="page">
+      <div class="page-head">
+        <h1>Optimize</h1>
+        <p class="sub">Toggles that help emulators run better. Android tweaks need an ADB connection; PC tweaks apply instantly.</p>
+      </div>
+      <div class="opt-cols">
+        <div class="panel">
+          <div class="panel-head"><h2>🤖 Android (over ADB)</h2>
+            <button id="btn-opt-android" class="btn primary sm">Apply selected</button>
+          </div>
+          <div id="android-tweaks"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h2>🖥️ PC</h2>
+            <button id="btn-opt-pc" class="btn primary sm">Apply selected</button>
+          </div>
+          <div id="pc-tweaks"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- LOG PAGE ---------- -->
+    <section id="page-log" class="page">
+      <div class="page-head">
+        <h1>Log</h1>
+        <button id="btn-log-copy" class="btn ghost sm">Copy</button>
+      </div>
+      <div id="log-box" class="panel mono"></div>
+    </section>
+  </main>
+</div>
+
+<!-- ===== modal ===== -->
+<div id="modal" class="hidden">
+  <div class="modal-card">
+    <h2 id="modal-title">Confirm</h2>
+    <div id="modal-body"></div>
+    <div class="modal-actions">
+      <button id="modal-cancel" class="btn ghost">Cancel</button>
+      <button id="modal-ok" class="btn primary">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="hidden"></div>
+<script src="js/app.js"></script>
+</body>
+</html>
